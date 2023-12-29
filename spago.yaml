@@ -1,0 +1,19 @@
+package:
+  name: went-examples
+  dependencies:
+    - console
+    - effect
+    - gojs
+    - halogen
+    - halogen-css
+    - prelude
+    - went
+workspace:
+  package_set:
+    registry: 47.8.0
+  extra_packages:
+    gojs:
+      path: ../purescript-gojs
+    went:
+      path: ../purescript-went
+
