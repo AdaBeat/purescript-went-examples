@@ -1,6 +1,6 @@
 module Example.Flowchart where
 
-import Prelude
+import Prelude hiding (top, bottom)
 
 import Data.Maybe (Maybe(..), maybe)
 import Data.Number (nan)
@@ -13,12 +13,14 @@ import GoJS.Diagram.DiagramEvent.Properties (_subject)
 import GoJS.Diagram.DiagramEvent.Properties as DiagramEvent
 import GoJS.Diagram.InputEvent.Properties (_diagram)
 import GoJS.Diagram.Properties (_isModified, _isReadOnly)
-import GoJS.Diagram.Types (DiagramEvent_, Diagram_, InputEvent_, Link_, Node_, Palette_, Panel_, Shape_)
+import GoJS.Diagram.Types (DiagramEvent_, Diagram_, Palette_, InputEvent_)
 import GoJS.Geometry.Point.Static as Point
 import GoJS.GraphObject.Panel.Methods (findObject_)
 import GoJS.GraphObject.Panel.Part.Link.Properties (_fromNode)
 import GoJS.GraphObject.Panel.Part.Properties (_category)
-import GoJS.Settable (setUnsafe)
+import GoJS.GraphObject.Types (Link_, Node_, Panel_, Shape_)
+import GoJS.Key (KeyProperty(..))
+import GoJS.Unsafe.Set (setUnsafe)
 import Web.DOM.Document (toNonElementParentNode)
 import Web.DOM.Element (removeAttribute, setAttribute)
 import Web.DOM.NonElementParentNode (getElementById)
@@ -31,28 +33,14 @@ import Went.Diagram.EnumValue.MouseWheelBehavior (MouseWheelBehavior(..))
 import Went.Diagram.Event (DiagramEvent(..))
 import Went.Diagram.Make (MakeDiagram, addDiagramListener, addLinkTemplate, addNodeTemplate, attach, defineFigureGenerator)
 import Went.Diagram.Make as Diagram
-import Went.Geometry.Geometry (Geometry(..))
-import Went.Geometry.Margin (Margin(..))
-import Went.Geometry.PathFigure (pathFigure)
-import Went.Geometry.PathSegment (PathSegment(..))
-import Went.Geometry.Point (Point)
-import Went.Geometry.Size (Size(..))
-import Went.Geometry.Spot (Spot(..))
-import Went.Geometry.Spot as Spot
-import Went.GraphObject.EnumValue.Curve (Curve(..))
-import Went.GraphObject.EnumValue.Routing (Routing(..))
-import Went.GraphObject.EnumValue.Stretch (Stretch(..))
-import Went.GraphObject.EnumValue.Wrap (Wrap(..))
-import Went.GraphObject.Make (link, node, panel, shape, textBlock)
-import Went.GraphObject.Panel (Auto', Spot', Table')
+import Went.Geometry (Geometry(..), Margin(..), PathSegment(..), Point, Size(..), Spot(..), bottom, bottomRight, center, left, pathFigure, right, top)
+import Went.GraphObject (Auto', Curve(..), MadeGraphObject, Routing(..), Spot', Stretch(..), Table', Wrap(..), link, node, panel, shape, textBlock)
 import Went.GraphObject.Shape.Arrowhead as Arrowhead
 import Went.GraphObject.Shape.Figure (Figure(..))
 import Went.GraphObject.Shape.Figure as Figure
 import Went.GraphObject.TextBlock.TextAlign (TextAlign(..))
-import Went.Model.Binding (binding, binding1, binding1TwoWay, bindingOfObject)
-import Went.Model.Make (graphLinksModel)
+import Went.Model (binding, binding1, binding1TwoWay, bindingOfObject, graphLinksModel)
 import Went.Settable (set)
-import Went.Template.Makers (MadeNode)
 
 type LinkData =
   ( points :: Array Point
@@ -98,13 +86,13 @@ makePort name align spot output input =
       , mouseLeave: \_ port _ -> setUnsafe port { fill: "transparent" }
       }
   where
-  horizontal = false -- align == Spot.top || align == Spot.bottom
+  horizontal = false -- align == top || align == bottom
 
 nodeStyle = do
   binding @"location" @"loc" (Just Point.parse_) (Just Point.stringify_)
-  set { locationSpot: Spot.center }
+  set { locationSpot: center }
 
-default :: MadeNode NodeData Node_
+default :: MadeGraphObject NodeData Node_ Node_
 default = node @Table' $ do
   nodeStyle
   panel @Auto' $ do
@@ -120,12 +108,12 @@ default = node @Table' $ do
         , editable: true
         }
       binding1 @"text"
-  makePort "T" Spot.top Spot.TopSide false true
-  makePort "L" Spot.left Spot.LeftSide true true
-  makePort "R" Spot.right Spot.RightSide true true
-  makePort "B" Spot.bottom Spot.BottomSide true false
+  makePort "T" top TopSide false true
+  makePort "L" left LeftSide true true
+  makePort "R" right RightSide true true
+  makePort "B" bottom BottomSide true false
 
-conditional :: MadeNode NodeData Node_
+conditional :: MadeGraphObject NodeData Node_ Node_
 conditional = node @Table' $ do
   nodeStyle
   panel @Table' $ do
@@ -142,12 +130,12 @@ conditional = node @Table' $ do
           , editable: true
           }
         binding1TwoWay @"text"
-    makePort "T" Spot.top Spot.top false true
-    makePort "L" Spot.left Spot.left true true
-    makePort "R" Spot.right Spot.right true true
-    makePort "B" Spot.bottom Spot.bottom true false
+    makePort "T" top top false true
+    makePort "L" left left true true
+    makePort "R" right right true true
+    makePort "B" bottom bottom true false
 
--- start :: MadeNode NodeData Node_
+-- start :: MadeGraphObject NodeData Node_ Node_
 start = node @Table' $ do
   nodeStyle
   panel @Spot' $ do
@@ -156,11 +144,11 @@ start = node @Table' $ do
     textBlock "Start" $ do
       textStyle
       binding1 @"text"
-  makePort "L" Spot.left Spot.left true false
-  makePort "R" Spot.right Spot.right true false
-  makePort "B" Spot.bottom Spot.bottom true false
+  makePort "L" left left true false
+  makePort "R" right right true false
+  makePort "B" bottom bottom true false
 
-end :: MadeNode NodeData Node_
+end :: MadeGraphObject NodeData Node_ Node_
 end = node @Table' $ do
   nodeStyle
   panel @Spot' $ do
@@ -169,12 +157,12 @@ end = node @Table' $ do
     textBlock "End" $ do
       textStyle
       binding1 @"text"
-  makePort "L" Spot.top Spot.top false true
-  makePort "R" Spot.left Spot.left false true
-  makePort "B" Spot.right Spot.right false true
+  makePort "L" top top false true
+  makePort "R" left left false true
+  makePort "B" right right false true
   pure unit
 
-comment :: MadeNode NodeData Node_
+comment :: MadeGraphObject NodeData Node_ Node_
 comment = node @Auto' $ do
   nodeStyle
   shape (Custom "File") $ do
@@ -263,11 +251,11 @@ linkData =
   ]
 
 templates
-  :: { "" :: MadeNode NodeData Node_
-     , "Conditional" :: MadeNode NodeData Node_
-     , "Start" :: MadeNode NodeData Node_
-     , "End" :: MadeNode NodeData Node_
-     , "Comment" :: MadeNode NodeData Node_
+  :: { "" :: MadeGraphObject NodeData Node_ Node_
+     , "Conditional" :: MadeGraphObject NodeData Node_ Node_
+     , "Start" :: MadeGraphObject NodeData Node_ Node_
+     , "End" :: MadeGraphObject NodeData Node_ Node_
+     , "Comment" :: MadeGraphObject NodeData Node_ Node_
      }
 templates =
   { "": default
@@ -302,7 +290,7 @@ diag = do
             ]
         }
       spot1 = Spot { x: 0.0, y: 0.25, offsetx: 0.0, offsety: 0.0 }
-      spot2 = Spot.bottomRight
+      spot2 = bottomRight
     in
       Geometry { figures: [ fig, fig2 ], spot1, spot2 }
   addNodeTemplate "" default
@@ -316,8 +304,8 @@ diag = do
     set
       { nodeDataArray: nodeData
       , linkDataArray: linkData
-      , linkFromPortIdProperty: "fromPort"
-      , linkToPortIdProperty: "toPort"
+      , linkFromPortIdProperty: Property "fromPort"
+      , linkToPortIdProperty: Property "toPort"
       }
   set
     { "toolManager.linkingTool.temporaryLink.routing": Orthogonal
@@ -376,12 +364,12 @@ pal = do
           , { key: 1, category: "End", text: "End", figure: Figure.None, loc: "" }
           , { key: 3, category: "Comment", text: "Comment", figure: Figure.None, loc: "" }
           ]
-      , linkFromPortIdProperty: "fromPort"
-      , linkToPortIdProperty: "toPort"
+      , linkFromPortIdProperty: Property "fromPort"
+      , linkToPortIdProperty: Property "toPort"
       }
 
 init ∷ Effect Unit
 init = do
   Diagram.make "myDiagramDiv" diag
-  Diagram.make "myPaletteDiv" pal
+  Diagram.makePalette "myPaletteDiv" pal
   Console.log "🍝 a"

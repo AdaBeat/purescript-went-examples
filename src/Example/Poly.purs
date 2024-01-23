@@ -1,31 +1,24 @@
 module Example.Poly where
 
-import Prelude
+import Prelude hiding (top, bottom)
 
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Console as Console
-import GoJS.Diagram.Types (Diagram_, Link_)
-import GoJS.Settable (setUnsafe)
+import GoJS.Diagram.Types (Diagram_)
+import GoJS.GraphObject.Types (Link_)
+import GoJS.Key (KeyProperty(..))
+import GoJS.Unsafe.Set (setUnsafe)
 import Went.Diagram.Make (MakeDiagram, addGroupTemplate, addLinkTemplate, addNodeTemplate)
 import Went.Diagram.Make as Diagram
-import Went.Geometry.Margin (Margin(..))
-import Went.Geometry.Size (Size(..))
-import Went.Geometry.Spot (Spot(..))
-import Went.Geometry.Spot as Spot
-import Went.GraphObject.EnumValue.Curve (Curve(..))
-import Went.GraphObject.EnumValue.SegmentOrientation (SegmentOrientation(..))
-import Went.GraphObject.Make (group, link, node, panel, placeholder, shape, textBlock)
-import Went.GraphObject.Panel (Auto', Spot', Table', Vertical')
+import Went.Geometry (Margin(..), Size(..), Spot(..), bottom, center, top)
+import Went.GraphObject (Auto', Curve(..), MadeGraphObject, SegmentOrientation(..), Spot', Table', Vertical', group, link, node, panel, placeholder, shape, textBlock)
 import Went.GraphObject.Shape.Arrowhead (Arrowhead(Feather))
 import Went.GraphObject.Shape.Figure (Figure(..))
 import Went.GraphObject.Shape.Figure as Figure
-import Went.Layout.EnumValue.TreeArrangement (Arrangement(..))
-import Went.Layout.Make (treeLayout)
-import Went.Model.Binding (binding)
-import Went.Model.Make (graphLinksModel)
+import Went.Layout (Arrangement(..), treeLayout)
+import Went.Model (binding, graphLinksModel)
 import Went.Settable (set)
-import Went.Template.Makers (MadeLink)
 
 type NodeData =
   ( key :: String
@@ -113,25 +106,25 @@ tablePanel = node @Auto' $ do
   panel @Table' $ do
     panel @Auto' $ do
       shape Circle $ do
-        set { alignment: Spot.center, desiredSize: SizeEach { w: 20.0, h: 20.0 } }
+        set { alignment: center, desiredSize: SizeEach { w: 20.0, h: 20.0 } }
         binding @"fill" @"color" Nothing Nothing
       textBlock "" $ do
         set { alignment: Spot { x: 0.5, y: 1.4, offsetx: 0.0, offsety: 0.0 } }
         binding @"text" @"key" Nothing Nothing
-  makePort Spot.bottom
+  makePort bottom
 
 visibleNodeTemplate = node @Auto' $ do
   panel @Spot' $ do
     shape Circle $ do
-      set { alignment: Spot.center, desiredSize: SizeEach { w: 20.0, h: 20.0 } }
+      set { alignment: center, desiredSize: SizeEach { w: 20.0, h: 20.0 } }
       binding @"fill" @"color" Nothing Nothing
     textBlock "" $ do
       set { alignment: Spot { x: 0.5, y: 1.4, offsetx: 0.0, offsety: 0.0 } }
       binding @"text" @"key" Nothing Nothing
-  makePort Spot.bottom
+  makePort bottom
 
 invisibleNodeTemplate = node @Auto' $ do
-  makePort Spot.top
+  makePort top
 
 groupTemplate = group @Vertical' $ do
   panel @Auto' $ do
@@ -145,7 +138,7 @@ groupTemplate = group @Vertical' $ do
   treeLayout $ do
     set { angle: 270.0, arrangement: ArrangementHorizontal, nodeSpacing: 25.0 }
 
-linkTemplate :: MadeLink LinkData Link_
+linkTemplate :: MadeGraphObject LinkData Link_ Link_
 linkTemplate = link $ do
   shape Figure.None $ do
     set { isPanelMain: true, stroke: "black" }
@@ -168,6 +161,7 @@ diag = do
         set
           { nodeDataArray: nodeData
           , linkDataArray: linkData
+          , nodeIsGroupProperty: Property "isGroup"
           }
 
 init ∷ Effect Unit

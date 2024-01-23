@@ -10,6 +10,7 @@ workspace:
         - halogen
         - halogen-css
         - prelude
+        - variant
         - went
       test_dependencies: []
   package_set:
@@ -916,6 +917,7 @@ packages:
         - prelude
         - typelevel-prelude
         - variant
+        - web-html
   halogen:
     needed_by:
       - went-examples
@@ -1656,31 +1658,10 @@ packages:
       type: local
       path: ../purescript-went
       dependencies:
-        - arrays
-        - console
-        - control
-        - css
         - effect
-        - either
-        - exceptions
-        - foldable-traversable
-        - functions
         - gojs
         - heterogeneous
-        - integers
-        - lists
-        - maybe
-        - newtype
         - nullable
-        - numbers
-        - partial
         - prelude
-        - random
-        - record
-        - strings
-        - transformers
-        - tuples
         - typelevel-lists
         - typelevel-prelude
-        - web-dom
-        - web-html

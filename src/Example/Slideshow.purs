@@ -24,7 +24,7 @@ module Example.Slideshow where
 -- import GoJS.Model.Methods (addNodeData_)
 -- import GoJS.Model.Properties (_nodeDataArray)
 -- import GoJS.Model.Types (TreeModel_)
--- import GoJS.Settable (setUnsafe)
+-- import GoJS.Unsafe.Set (setUnsafe)
 -- import Prim.Row (class Cons)
 -- import Type.Data.List (type (:>))
 -- import Went.Diagram.EnumValue.GestureBehavior (GestureBehavior(..))

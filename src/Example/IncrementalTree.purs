@@ -12,29 +12,26 @@ import Effect.Exception.Unsafe (unsafeThrow)
 import Effect.Random (randomInt)
 import GoJS.Diagram.Methods (commitTransaction_, findNodeForData_, findNodeForKey_, startTransaction_, zoomToFit_)
 import GoJS.Diagram.Properties (_model)
-import GoJS.Diagram.Types (Diagram_, Node_, Panel_)
+import GoJS.Diagram.Types (Diagram_)
 import GoJS.GraphObject.Panel.Methods (findObject_)
 import GoJS.GraphObject.Panel.Part.Node.Methods (collapseTree_, expandTree_, findTreeParentNode_)
 import GoJS.GraphObject.Panel.Part.Node.Properties (_isTreeExpanded)
 import GoJS.GraphObject.Panel.Part.Properties (_location)
 import GoJS.GraphObject.Panel.Properties (_data)
 import GoJS.GraphObject.Properties (_diagram, _part)
+import GoJS.GraphObject.Types (Node_, Panel_)
 import GoJS.Model.Methods (addNodeData_, setDataProperty_)
 import GoJS.Model.Properties (_nodeDataArray)
 import GoJS.Model.Types (TreeModel_)
-import GoJS.Settable (setUnsafe)
-import Went.Diagram.Make (MakeDiagram, attach, nodeTemplateMap)
+import GoJS.Unsafe.Set (setUnsafe)
+import Went.Diagram.Make (MakeDiagram, addNodeTemplate, attach)
 import Went.Diagram.Make as Diagram
-import Went.Geometry.Margin (Margin(..))
-import Went.Geometry.Spot as Spot
-import Went.GraphObject.Make (button, node, panel, shape, textBlock)
-import Went.GraphObject.Panel (Auto', Spot', TreeExpander')
+import Went.Geometry (Margin(..), center, topRight)
+import Went.GraphObject (Auto', MadeGraphObject, Spot', TreeExpander', button, node, panel, shape, textBlock)
 import Went.GraphObject.Shape.Figure (Figure(..))
-import Went.Layout.Make (forceDirectedLayout)
-import Went.Model.Binding (binding)
-import Went.Model.Make (treeModel)
+import Went.Layout (forceDirectedLayout)
+import Went.Model (binding, treeModel)
 import Went.Settable (set)
-import Went.Template.Makers (MadeNode)
 
 blues :: Array String
 blues = [ "#E1F5FE", "#B3E5FC", "#81D4FA", "#4FC3F7", "#29B6F6", "#03A9F4", "#039BE5", "#0288D1", "#0277BD", "#01579B" ]
@@ -81,7 +78,7 @@ expandNode n = do
   void $ diagram # commitTransaction_ "CollapseExpandTree"
   zoomToFit_ diagram
 
-nodeTemplate :: MadeNode NodeData Node_
+nodeTemplate :: MadeGraphObject NodeData Node_ Node_
 nodeTemplate = node @Spot' $ do
   set
     { selectionObjectName: "PANEL"
@@ -108,8 +105,8 @@ nodeTemplate = node @Spot' $ do
       { name: "TREEBUTTON"
       , width: 20.0
       , height: 20.0
-      , alignment: Spot.topRight
-      , alignmentFocus: Spot.center
+      , alignment: topRight
+      , alignmentFocus: center
       , click: \e obj -> do
           case obj # _part @Node_ of
             Just n -> do
@@ -132,13 +129,13 @@ nodeData = [ { parent: 0, key: 0, color: "#E1F5FE", everExpanded: false, rootdis
 diag :: forall linkData. MakeDiagram NodeData linkData Diagram_ Unit
 diag = do
   attach
-    { initialContentAlignment: Spot.center
+    { initialContentAlignment: center
     , "commandHandler.copiesTree": true
     , "commandHandler.deletesTree": true
     , "draggingTool.dragsTree": true
     , "undoManager.isEnabled": true
     }
-  nodeTemplateMap {"": nodeTemplate}
+  addNodeTemplate "" nodeTemplate
   forceDirectedLayout $ pure unit
   treeModel $ do
     set { nodeDataArray: nodeData }

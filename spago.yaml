@@ -7,8 +7,11 @@ package:
     - halogen
     - halogen-css
     - prelude
+    - variant
     - went
 workspace:
+  censor_library_warnings:
+    all
   package_set:
     registry: 47.8.0
   extra_packages:

@@ -7,7 +7,7 @@ import CSS.Cursor as CSS.Cursor
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Example.Flowchart (init)
+import Example.Sankey (init)
 import Halogen as H
 import Halogen.Aff as HA
 import Halogen.HTML as HH

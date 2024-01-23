@@ -9,8 +9,8 @@ import Data.Number (round)
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Exception.Unsafe (unsafeThrow)
-import GoJS.Diagram (class IsNode, Node_, Diagram_, Shape_, TextBlock_)
 import GoJS.Diagram.Properties (_nodes)
+import GoJS.Diagram.Types (Diagram_)
 import GoJS.EnumValue (enumValueBuilder_)
 import GoJS.Geometry.Rect.Properties as Rect
 import GoJS.GraphObject.Panel.Methods (findObject_)
@@ -19,6 +19,8 @@ import GoJS.GraphObject.Panel.Part.Link.Properties (_curve)
 import GoJS.GraphObject.Panel.Part.Methods (ensureBounds_)
 import GoJS.GraphObject.Panel.Part.Node.Methods (findLinksInto_, findLinksOutOf_)
 import GoJS.GraphObject.Properties (_actualBounds)
+import GoJS.GraphObject.Types (class IsNode, Node_, Shape_, TextBlock_)
+import GoJS.Key (KeyProperty(..))
 import GoJS.Layout (LayeredDigraphLayout_, LayeredDigraphNetwork_, LayeredDigraphVertex_)
 import GoJS.Layout.LayeredDigraphLayout.Properties (_columnSpacing, _maxLayer)
 import GoJS.Layout.LayoutEdge.Properties (_link)
@@ -28,24 +30,17 @@ import GoJS.Layout.LayoutNetwork.Properties as Network
 import GoJS.Layout.LayoutVertex.Properties (_destinationVertexes, _edges, _edgesCount, _height, _node, _sourceVertexes)
 import GoJS.Layout.Properties (_diagram, _network)
 import GoJS.Prototype (prototype)
-import GoJS.Settable (setUnsafe)
+import GoJS.Unsafe.Set (setUnsafe)
 import Went.Diagram.EnumValue.AutoScale (AutoScale(..))
 import Went.Diagram.Make (MakeDiagram, addLinkTemplate, addNodeTemplate, attach)
 import Went.Diagram.Make as Diagram
 import Went.FFI.Override (Override(..))
-import Went.Geometry.Margin (Margin(..))
-import Went.Geometry.Spot as Spot
-import Went.GraphObject.EnumValue.Adjusting as Adjusting
-import Went.GraphObject.EnumValue.Curve (Curve(..))
-import Went.GraphObject.EnumValue.PortSpreading (PortSpreading(..))
-import Went.GraphObject.Make (link, node, shape, textBlock)
-import Went.GraphObject.Panel (Auto', Horizontal')
+import Went.Geometry (Margin(..), Spot(..), left)
+import Went.GraphObject (Adjusting(End), Curve(..), Horizontal', Link', MadeGraphObject, PortSpreading(..), adornment, link, node, selectionAdornmentTemplate, shape, textBlock)
+import Went.GraphObject.Shape.Arrowhead (Arrowhead(..))
 import Went.GraphObject.Shape.Figure as Figure
-import Went.Layout.EnumValue.LayeringOption (LayeringOption(..))
-import Went.Layout.LayeredDigraphLayout as LayeredDigraphLayout
-import Went.Layout.Make (layeredDigraphLayout)
-import Went.Model.Binding (binding, binding1)
-import Went.Model.Make (graphLinksModel)
+import Went.Layout (LayeringOption(..), alignAll, layeredDigraphLayout, packMedian, packStraighten)
+import Went.Model (binding, binding1, graphLinksModel)
 import Went.Settable (set)
 
 getAutoHeightForNode :: forall n. IsNode n => n -> Effect Number
@@ -137,8 +132,8 @@ sankeyLayout = layeredDigraphLayout $ do
     , nodeMinLayerSpace: nodeMinLayerSpace
     , commitLayout: commitLayout
     , assignLayers: assignLayers
-    , alignOption: LayeredDigraphLayout.alignAll
-    , packOption: LayeredDigraphLayout.packStraighten <> LayeredDigraphLayout.packMedian
+    , alignOption: alignAll
+    , packOption: packStraighten <> packMedian
     , setsPortSpots: false
     , direction: 0.0
     , layeringOption: LayerOptimalLinkLength
@@ -149,10 +144,11 @@ sankeyLayout = layeredDigraphLayout $ do
 textStyle =
   set { font: "bold 12pt Segoe UI, sans-serif", stroke: "black", margin: MarginAll 5.0 }
 
+nodeTemplate :: MadeGraphObject NodeData Node_ Node_
 nodeTemplate = node @Horizontal' $ do
   set
     { locationObjectName: "SHAPE"
-    , locationSpot: Spot.left
+    , locationSpot: left
     , portSpreading: SpreadingPacked
     }
   textBlock "" $ do
@@ -165,8 +161,8 @@ nodeTemplate = node @Horizontal' $ do
       , fill: "#2E8DEF"
       , strokeWidth: 0.0
       , portId: ""
-      , fromSpot: Spot.RightSide
-      , toSpot: Spot.LeftSide
+      , fromSpot: RightSide
+      , toSpot: LeftSide
       , height: 10.0
       , width: 20.0
       }
@@ -179,18 +175,18 @@ nodeTemplate = node @Horizontal' $ do
 linkTemplate = link $ do
   set
     {
-      -- selectionAdornmentTemplate: do
-      --   shape Figure.None $ do
-      --     set { isPanelMain: true, fill: "transparent", stroke: "rgba(0, 0, 255, 0.3)", strokeWidth: 0.0 }
       curve: Bezier
     , layerName: "Background"
     , fromEndSegmentLength: 150.0
     , toEndSegmentLength: 150.0
-    , adjusting: Adjusting.End
+    , adjusting: End
     }
+  selectionAdornmentTemplate $ do
+    adornment @Link' $ do 
+      shape Figure.None $ do
+        set { isPanelMain: true, fill: "transparent", stroke: "rgba(0, 0, 255, 0.3)", strokeWidth: 0.0 }
   shape Figure.None $ do
-
-    set { strokeWidth: 4.0, stroke: "rgba(173, 173, 173, 0.25)", segmentFraction: 0.4 }
+    set { strokeWidth: 4.0, stroke: "rgba(173, 173, 173, 0.25)", segmentFraction: 0.4, toArrow: Feather }
     binding @"stroke" @"ignored" (Just getAutoLinkColor) Nothing
     binding @"strokeWidth" @"width" Nothing Nothing
   where
@@ -368,7 +364,7 @@ diag = do
   addLinkTemplate "" linkTemplate
   sankeyLayout
   graphLinksModel $ do
-    set { nodeDataArray, linkDataArray, linkFromPortIdProperty: "", linkToPortIdProperty: "" }
+    set { nodeDataArray, linkDataArray, linkFromPortIdProperty: Property "", linkToPortIdProperty: Property "" }
 
 init ∷ Effect Unit
 init = do

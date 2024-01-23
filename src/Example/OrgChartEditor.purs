@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Array ((!!))
 import Data.Foldable (length)
-import Data.Int (fromNumber, rem)
+import Data.Int (fromNumber, rem, toNumber)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Nullable (Nullable, toMaybe)
 import Data.Number (nan)
@@ -12,24 +12,28 @@ import Data.String.CodePoints (indexOf, take)
 import Data.String.CodePoints as String
 import Data.String.Pattern (Pattern(..))
 import Data.Traversable (for_)
+import Data.Variant (inj)
 import Effect (Effect)
 import Effect.Console (log)
-import GoJS.Collection (setFirst)
+import GoJS.Collection (setFirst, toIterator_)
 import GoJS.Diagram.CommandHandler.Methods (editTextBlock_, scrollToPart_)
 import GoJS.Diagram.DiagramEvent.Properties as DiagramEvent
 import GoJS.Diagram.InputEvent.Properties as InputEvent
 import GoJS.Diagram.Methods (commitTransaction_, findNodeForData_, removeParts_, select_, startTransaction_)
 import GoJS.Diagram.Properties (_commandHandler, _isModified, _model, _selection, _toolManager)
-import GoJS.Diagram.Types (Diagram_, InputEvent_, Node_, Panel_, Shape_)
+import GoJS.Diagram.Types (Diagram_, InputEvent_)
 import GoJS.GraphObject.Panel.Methods (findObject_)
 import GoJS.GraphObject.Panel.Part.Adornment.Properties (_adornedPart)
 import GoJS.GraphObject.Panel.Part.Node.Methods (findTreeChildrenNodes_, findTreeParentLink_, findTreeParentNode_, findTreeParts_, isInTreeOf_)
 import GoJS.GraphObject.Panel.Part.Node.Properties (_port)
 import GoJS.GraphObject.Panel.Part.Properties (_location)
 import GoJS.GraphObject.Panel.Properties (_data)
+import GoJS.GraphObject.Picture.Properties (_element)
 import GoJS.GraphObject.Properties (_part)
 import GoJS.GraphObject.Properties as GraphObject
 import GoJS.GraphObject.Shape.Properties (_fill)
+import GoJS.GraphObject.Types (Node_, Panel_, Shape_, fromPart)
+import GoJS.Key (Key(..), KeyProperty(..))
 import GoJS.Layout.LayoutNetwork.Properties (_vertexes)
 import GoJS.Layout.LayoutVertex.Properties (_level, _node)
 import GoJS.Layout.Properties (_network)
@@ -37,11 +41,12 @@ import GoJS.Model.Methods (addNodeData_, removeNodeData_, setDataProperty_)
 import GoJS.Model.TreeModel.Methods (setParentKeyForNodeData_)
 import GoJS.Model.Types (TreeModel_)
 import GoJS.Prototype (prototype)
-import GoJS.Settable (setUnsafe)
 import GoJS.Tool.MouseMoveTools.LinkingTool.Methods (insertLink_)
 import GoJS.Tool.Properties as Tool
 import GoJS.Tool.ToolManager.Properties (_linkingTool)
 import GoJS.Unsafe (getUnsafe)
+import GoJS.Unsafe.Set (setUnsafe)
+import Type.Proxy (Proxy(..))
 import Web.DOM.Document (toNonElementParentNode)
 import Web.DOM.Element (removeAttribute, setAttribute)
 import Web.DOM.NonElementParentNode (getElementById)
@@ -56,20 +61,13 @@ import Went.FFI.Override (Override(..))
 import Went.Geometry.Margin (Margin(..))
 import Went.Geometry.Size (Size(..))
 import Went.Geometry.Spot as Spot
-import Went.GraphObject.EnumValue.Routing (Routing(..))
-import Went.GraphObject.EnumValue.Wrap (Wrap(..))
-import Went.GraphObject.Make (button, contextMenu, link, node, panel, picture, shape, textBlock)
-import Went.GraphObject.Panel (Auto', Basic', ContextMenu', Horizontal', Spot', Table', TreeExpander')
+import Went.GraphObject (Auto', Basic', ContextMenu', Horizontal', MadeGraphObject, Routing(..), Spot', Table', TreeExpander', Wrap(..), button, contextMenu, link, node, panel, pathPattern, picture, shape, textBlock)
 import Went.GraphObject.Shape.Figure (Figure(..))
-import Went.Layout.EnumValue.TreeAlignment (Alignment(..))
-import Went.Layout.EnumValue.TreeArrangement (Arrangement(..))
-import Went.Layout.EnumValue.TreeStyle (TreeStyle(..))
-import Went.Layout.Make (treeLayout)
-import Went.Model.Binding (binding, bindingOfObject)
-import Went.Model.Make (treeModel)
+import Went.GraphObject.Shape.StrokeCap as StrokeCap
+import Went.Layout (Alignment(..), Arrangement(..), TreeStyle(..), treeLayout)
+import Went.Model (binding, bindingOfObject, treeModel)
 import Went.RowColumnDefinition.Make (rowColumnDefinition)
 import Went.Settable (set)
-import Went.Template.Makers (MadeNode)
 import Went.Tool.Make (clickCreatingTool)
 
 levelColors :: Array String
@@ -92,18 +90,13 @@ textStyle = set
 findHeadShot :: Nullable String -> String
 findHeadShot pic = case toMaybe pic of
   Just p -> "images/HS" <> p
-  Nothing -> "images/HSnopic.png" 
-
--- TODO: implement 
--- case pic of
---   Just p -> "images/HS" <> p
---   Nothing -> "images/HSnopic.png"
+  Nothing -> "images/HSnopic.png"
 
 mayWorkFor :: Node_ -> Node_ -> Effect Boolean
 mayWorkFor node1 node2 =
   not <$> (node2 # isInTreeOf_ node1)
 
-nodeTemplate :: MadeNode NodeData Node_
+nodeTemplate :: MadeGraphObject NodeData Node_ Node_
 nodeTemplate = node @Spot' $ do
   set
     { selectionObjectName: "BODY"
@@ -114,7 +107,7 @@ nodeTemplate = node @Spot' $ do
         findObject_ @Panel_ "BUTTON" node >>= maybe (pure unit) (flip setUnsafe { opacity: 0.0 })
         findObject_ @Panel_ "BUTTONX" node >>= maybe (pure unit) (flip setUnsafe { opacity: 0.0 })
     , mouseDragEnter: \_e node _ -> do
-        let selnode = setFirst $ node # GraphObject._diagram >>> _selection @Node_
+        let selnode = setFirst $ node # GraphObject._diagram >>> _selection
         findObject_ "SHAPE" node >>= \maybeSh -> case selnode *> maybeSh of
           Just sh -> setUnsafe sh { _prevFill: sh # _fill, fill: "darkred" }
           Nothing -> pure unit
@@ -123,7 +116,8 @@ nodeTemplate = node @Spot' $ do
         Nothing -> pure unit
     , mouseDrop: \_e node -> do
         let diagram = node # GraphObject._diagram
-        case setFirst $ diagram # _selection of
+        -- fromPart is needed to convert the selection's Set element to a Node
+        case fromPart =<< (setFirst $ diagram # _selection) of
           Nothing -> pure unit
           Just selnode -> do
             canWork <- mayWorkFor selnode node
@@ -283,7 +277,8 @@ nodeTemplate = node @Spot' $ do
               Just node -> do
                 let diagram = e # InputEvent._diagram
                 void $ diagram # startTransaction_ "remove dept"
-                findTreeParts_ @Node_ node >>= flip removeParts_ diagram
+                parts <- toIterator_ <$> findTreeParts_ node
+                removeParts_ (inj (Proxy @"iterator") parts) false diagram
                 void $ diagram # commitTransaction_ "remove dept"
         }
   where
@@ -333,7 +328,7 @@ nodeDataArray =
   , { "key": 13, comments: "", "name": "Stan Wellback", "title": "Testing", "pic": Just "13.jpg", "parent": 10, isTreeExpanded: true }
   , { "key": 14, comments: "", "name": "Marge Innovera", "title": "Hardware", "pic": Just "14.jpg", "parent": 10, isTreeExpanded: true }
   , { "key": 15, comments: "", "name": "Evan Elpus", "title": "Quality", "pic": Just "15.jpg", "parent": 5, isTreeExpanded: true }
-  , { "key": 16, comments: "", "name": "Lotta B. Essen", "title": "Sales Rep", "pic": Just "16.jpg", "parent": 3, isTreeExpanded: true }
+  , { "key": 16, comments: "", "name": "Lotta B. Essen!!", "title": "Sales Rep", "pic": Just "16.jpg", "parent": 3, isTreeExpanded: true }
   ]
 
 diag :: MakeDiagram NodeData LinkData Diagram_ Unit
@@ -408,10 +403,20 @@ diag = do
   addNodeTemplate "" nodeTemplate
   addLinkTemplate "" $ link $ do
     set { routing: Orthogonal, layerName: "Background", corner: 5.0 }
-    shape None $
+    shape None $ do
       set { strokeWidth: 1.5, stroke: "#F5F5F5" }
+      pathPattern $ do
+        shape None $ do
+          set
+            { geometryString: "M0 0 L1 0 M0 3 L1 3"
+            , fill: "transparent"
+            , stroke: "black"
+            , width: 1.0
+            , strokeCap: StrokeCap.Square
+            }    
   treeModel $ do
-    set { nodeDataArray }
+    set { nodeDataArray, nodeParentKeyProperty: FunctionProperty \obj _ -> NumberKey (toNumber obj.parent) }
+
 
 
 init ∷ Effect Unit
